@@ -1,0 +1,1243 @@
+# Build an Enterprise Loan Intelligence Multimodal RAG & Document Analysis System
+
+Act as a **Senior RAG Architect, AI/ML Engineer, and Enterprise Document Intelligence Architect**.
+
+Build a production-oriented **Loan Intelligence Multimodal RAG and Document Analysis System** that can process complex loan application document packages containing **digital PDFs, scanned PDFs, OCR text, paragraphs, tables, forms, checkboxes, signatures, images, charts, structured data, and unstructured data**.
+
+The system should demonstrate and support modern RAG techniques including **OCR, layout-aware document parsing, multiple chunking strategies, dense embeddings, sparse embeddings, hybrid retrieval, multi-vector embeddings, parent-child retrieval, hierarchical retrieval, vector search, metadata filtering, query rewriting, query decomposition, rank fusion, reranking, late interaction / ColBERT-style retrieval, multimodal retrieval, grounded generation, citations, incremental indexing, document versioning, and comprehensive RAG evaluation**.
+
+The goal is to create a realistic enterprise-grade system that can be used to compare different RAG architectures and understand exactly how each component affects retrieval quality, answer quality, latency, and cost.
+
+---
+
+## Business Use Case
+
+A financial institution receives loan application packages from customers.
+
+Each application may contain:
+
+* Loan application forms
+* Applicant personal information
+* Employment information
+* Payslips
+* Bank statements
+* Tax documents
+* Credit reports
+* Property valuation reports
+* Income documents
+* Expense documents
+* Credit guides
+* Declarations
+* Consent forms
+* Identity documents
+* Scanned forms
+* Signed documents
+* Images
+* Tables
+* Charts
+* Checkboxes
+* Handwritten annotations
+* Stamps and seals
+
+Documents can be digital or scanned and may contain mixed content on the same page.
+
+Documents may also change over time. New versions can be uploaded weekly or monthly.
+
+The system must maintain document versions and should not unnecessarily reprocess documents that have not changed.
+
+---
+
+## Example Business Questions
+
+The system should be able to answer questions such as:
+
+* What is the applicant's monthly income?
+* What is the applicant's monthly living expense?
+* What is the living expense variance?
+* What are the applicant's current liabilities?
+* Was the credit guide provided?
+* Was the credit guide acknowledged?
+* Is the declaration signed?
+* Is a signature present on the document?
+* What is the loan application number?
+* What is the applicant's employment type?
+* What is the applicant's declared income?
+* What income is shown in the payslip?
+* Does the declared income match the supporting documents?
+* Are there discrepancies between the loan application and bank statements?
+* Are there inconsistencies between the application, payslips and tax documents?
+* Which required documents are missing?
+* What evidence supports the applicant's declared expenses?
+* Summarize the applicant's financial position using only the available evidence.
+* Compare the applicant's income, expenses and liabilities.
+* Identify conflicting information across documents.
+* Calculate financial ratios from information contained in multiple documents.
+* If the requested information is not present, explicitly state that sufficient evidence was not found.
+
+The system must distinguish between:
+
+1. Information explicitly present in the documents.
+2. Information that can be calculated from document data.
+3. Information that requires cross-document comparison.
+4. Information that is not available.
+
+Never fabricate missing information.
+
+---
+
+## Document Processing Requirements
+
+The system must support both digital and scanned documents.
+
+Use OCR where required.
+
+The document processing system should identify and preserve:
+
+* Text
+* Paragraphs
+* Headings
+* Sections
+* Tables
+* Table rows
+* Table columns
+* Cells
+* Images
+* Figures
+* Signatures
+* Checkboxes
+* Forms
+* Page numbers
+* Bounding boxes
+* Document metadata
+* Document type
+* Application ID
+* Version
+* Upload timestamp
+* Source
+* Content type
+
+Do not flatten the entire document into plain text.
+
+Create a canonical structured representation of the document that preserves relationships between document elements.
+
+Example:
+
+```json
+{
+  "document_id": "DOC-001",
+  "application_id": "APP-001",
+  "page": 12,
+  "elements": [
+    {
+      "type": "heading",
+      "text": "Living Expenses"
+    },
+    {
+      "type": "table",
+      "table_id": "TABLE-001",
+      "rows": []
+    },
+    {
+      "type": "paragraph",
+      "text": "The applicant declared..."
+    },
+    {
+      "type": "image",
+      "image_id": "IMG-001"
+    }
+  ]
+}
+```
+
+Preserve page-level and element-level provenance so that the final answer can cite the original document and page.
+
+---
+
+## OCR and Document Intelligence
+
+Use a layout-aware document extraction approach.
+
+The architecture should support:
+
+* OCR
+* Layout analysis
+* Table extraction
+* Image extraction
+* Section detection
+* Heading detection
+* Checkbox detection
+* Signature detection
+* Page-level metadata
+* Bounding boxes
+
+Prefer an architecture compatible with Azure AI Document Intelligence because the target environment is enterprise/Azure-oriented.
+
+However, design the extraction layer behind an abstraction so that alternative parsers can be tested later.
+
+Possible implementations may include:
+
+* Azure AI Document Intelligence
+* PyMuPDF
+* pdfplumber
+* Unstructured
+* Other suitable document parsing libraries
+
+The extraction layer must expose a consistent internal schema regardless of the parser used.
+
+---
+
+## Chunking Requirements
+
+Implement configurable chunking strategies.
+
+The system should support:
+
+* Fixed-size chunking
+* Fixed-size chunking with overlap
+* Recursive chunking
+* Sentence-based chunking
+* Semantic chunking
+* Heading-aware chunking
+* Markdown-aware chunking
+* Structure-aware chunking
+* Table-aware chunking
+* Parent-child chunking
+* Hierarchical chunking
+* Multimodal/content-type-aware chunking
+
+The system must preserve metadata for every chunk.
+
+Each chunk should contain information such as:
+
+```json
+{
+  "chunk_id": "CHUNK-001",
+  "document_id": "DOC-001",
+  "application_id": "APP-001",
+  "parent_id": "PARENT-001",
+  "page": 12,
+  "section": "Financial Assessment",
+  "content_type": "table",
+  "text": "...",
+  "table_id": "TABLE-001",
+  "image_id": null,
+  "version": "v2"
+}
+```
+
+The system must allow chunking configurations to be changed without changing the rest of the pipeline.
+
+---
+
+## Embedding Requirements
+
+Support multiple representation strategies.
+
+The architecture must support:
+
+### Dense embeddings
+
+For semantic similarity and natural-language retrieval.
+
+Support models such as:
+
+* sentence-transformers/all-MiniLM-L6-v2
+* BGE-large
+* E5-large
+* BGE-M3
+* Azure/OpenAI embedding models
+
+### Sparse retrieval
+
+Support:
+
+* BM25
+* Sparse neural retrieval where appropriate
+
+### Multi-vector representations
+
+Support separate representations for:
+
+* Text
+* Tables
+* Images
+* Titles
+* Summaries
+* Other content types
+
+### Late-interaction retrieval
+
+Design the architecture so that ColBERT-style token-level or multi-vector retrieval can be tested.
+
+### Multimodal retrieval
+
+Support image/text representations where appropriate.
+
+Allow embedding models to be configured rather than hardcoded.
+
+The system should record:
+
+* Model name
+* Embedding dimension
+* Vector type
+* Content type
+* Model version
+* Timestamp
+
+---
+
+## Single-Vector and Multi-Vector Support
+
+The system must support both:
+
+### Single-vector architecture
+
+```text
+Chunk
+→ One embedding
+→ Vector database
+```
+
+and:
+
+### Multi-vector architecture
+
+```text
+Document
+├── Text vector
+├── Table vector
+├── Image vector
+├── Title vector
+└── Other representation vectors
+```
+
+The system must allow the two architectures to be benchmarked against each other using the same evaluation dataset.
+
+Do not assume multi-vector retrieval is automatically better.
+
+The system must provide measurable evidence comparing the approaches.
+
+---
+
+## Vector Database Requirements
+
+Design the storage layer so that multiple vector databases can be evaluated.
+
+Support or make the architecture compatible with:
+
+* FAISS
+* Qdrant
+* Pinecone
+* Azure AI Search
+* Milvus
+* PostgreSQL/pgvector where appropriate
+
+FAISS may be used for local experimentation.
+
+Pinecone/Qdrant/Azure AI Search may be used for production-oriented implementations.
+
+Milvus should be considered for multi-vector experimentation.
+
+The vector database abstraction should support:
+
+* Upsert
+* Delete
+* Search
+* Hybrid search
+* Metadata filtering
+* Namespace/collection management
+* Version filtering
+* Application filtering
+* Content-type filtering
+* Top-K retrieval
+* Multiple vector fields where supported
+
+---
+
+## Indexing Requirements
+
+Create indexes that support efficient approximate nearest-neighbor retrieval.
+
+Support configurable indexing parameters.
+
+Where appropriate, support:
+
+* HNSW
+* IVF
+* Exact/Flat search
+* Product Quantization where relevant
+
+Allow indexing parameters to be changed for experiments.
+
+Track:
+
+* Index size
+* Number of vectors
+* Indexing time
+* Search latency
+* Recall
+* Storage requirements
+
+---
+
+## Metadata Filtering
+
+Support metadata filtering such as:
+
+* Application ID
+* Applicant ID
+* Document ID
+* Document type
+* Page
+* Section
+* Content type
+* Version
+* Effective date
+* Upload date
+* Source
+* Access permissions
+
+For example:
+
+```text
+application_id = APP-001
+AND
+version = current
+AND
+content_type = table
+```
+
+Metadata filtering should happen before or during retrieval whenever appropriate.
+
+---
+
+## Query Understanding
+
+Implement configurable query-processing capabilities.
+
+Support:
+
+* Query normalization
+* Query classification
+* Query rewriting
+* Query expansion
+* Keyword extraction
+* Metadata extraction
+* Query decomposition
+* Multi-query retrieval
+* HyDE-style retrieval where appropriate
+
+Example:
+
+User:
+
+```text
+What about his expenses?
+```
+
+The system should use conversation context to understand the actual applicant and rewrite the query into a more retrieval-friendly representation.
+
+---
+
+## Query Routing
+
+Implement intelligent query routing.
+
+Classify questions into categories such as:
+
+* Text question
+* Exact lookup
+* Table question
+* Image/visual question
+* Metadata question
+* Cross-document question
+* Multi-hop question
+* Calculation question
+* Comparison question
+
+Route the query to appropriate retrieval mechanisms.
+
+Example:
+
+```text
+"What is the living expense variance?"
+→ Table retrieval
+```
+
+```text
+"What is the application ID?"
+→ Metadata/exact retrieval
+```
+
+```text
+"Was the credit guide acknowledged?"
+→ Text/form/checkbox retrieval
+```
+
+```text
+"Is the declared income consistent with the payslip?"
+→ Cross-document retrieval
+```
+
+---
+
+## Retrieval Requirements
+
+Support:
+
+* Dense vector search
+* Sparse/BM25 search
+* Hybrid retrieval
+* Multi-vector retrieval
+* Metadata filtering
+* Parent-child retrieval
+* Hierarchical retrieval
+* Multi-query retrieval
+
+The system must support configurable candidate sizes.
+
+For example:
+
+```text
+Retrieve Top 50
+→ Fusion
+→ Rerank
+→ Final Top 5
+```
+
+Do not assume that retrieving only Top 3 or Top 5 is always optimal.
+
+The system must make Top-K configurable.
+
+---
+
+## Hybrid Retrieval
+
+Implement:
+
+```text
+User Query
+├── Dense retrieval
+└── BM25/sparse retrieval
+        ↓
+      Rank Fusion
+        ↓
+     Candidate set
+```
+
+Support Reciprocal Rank Fusion (RRF).
+
+Allow different retrieval weights/configurations to be tested.
+
+---
+
+## Reranking
+
+Implement reranking after initial retrieval.
+
+Support a configurable reranking layer.
+
+Potential approaches:
+
+* Cross-encoder reranker
+* Semantic ranker
+* ColBERT-style late interaction
+* LLM-based reranking where appropriate
+
+The architecture should allow:
+
+```text
+Top 50 retrieved
+→ rerank
+→ Top 5 final context
+```
+
+Record the original retrieval rank and reranked position.
+
+---
+
+## Parent-Child Retrieval
+
+Support:
+
+```text
+Parent
+Financial Assessment
+
+Children
+├── Income
+├── Expenses
+├── Living Expense Table
+└── Variance
+```
+
+Retrieve the child chunk but optionally expand the context using the parent.
+
+The system should allow comparison between:
+
+* Child-only retrieval
+* Parent-only retrieval
+* Parent + child retrieval
+
+---
+
+## Context Assembly
+
+Before sending context to the LLM:
+
+* Deduplicate chunks
+* Remove irrelevant chunks
+* Preserve source order where useful
+* Preserve page information
+* Preserve table structure
+* Preserve parent-child relationships
+* Detect conflicting evidence
+* Enforce token limits
+* Prioritize high-ranking evidence
+* Include source metadata
+
+Do not blindly concatenate all retrieved chunks.
+
+---
+
+## LLM Requirements
+
+Use configurable LLMs.
+
+The system should support an enterprise-hosted model such as Azure OpenAI.
+
+Also design the abstraction so that models such as:
+
+* GPT-family models
+* Llama
+* Qwen
+* Mistral
+* Gemma
+
+can be tested where appropriate.
+
+LLM selection should consider:
+
+* Answer quality
+* Reasoning capability
+* Context window
+* Latency
+* Cost
+* Tool calling
+* Structured output
+* Privacy
+* Deployment requirements
+* Multilingual support
+
+Do not use the largest model for every task.
+
+Allow different models for:
+
+* Query classification
+* Query rewriting
+* Extraction
+* Reranking
+* Final generation
+* Evaluation
+
+---
+
+## Grounded Generation
+
+The LLM must follow strict grounding rules.
+
+It should:
+
+* Answer using retrieved evidence
+* Avoid unsupported claims
+* Clearly identify insufficient evidence
+* Identify conflicts between documents
+* Provide citations
+* Reference document/page/chunk
+* Distinguish facts from calculations
+* Explain calculations when requested
+
+Example:
+
+```text
+Answer:
+The declared monthly income is ₹120,000.
+
+Evidence:
+Loan Application.pdf — Page 4
+```
+
+If evidence conflicts:
+
+```text
+The application reports ₹120,000,
+while the March payslip reports ₹127,500.
+
+The documents therefore contain an income discrepancy.
+```
+
+---
+
+## Citation Requirements
+
+Every answer should preserve provenance.
+
+Citations should be traceable to:
+
+```text
+Document
+→ Page
+→ Section
+→ Chunk
+→ Element
+→ Table/Image where applicable
+```
+
+For tables, allow citation to a specific table.
+
+For images, allow citation to the source page/image.
+
+---
+
+## Versioning and Incremental Indexing
+
+Documents can change weekly/monthly.
+
+Implement:
+
+* Document hash
+* Content hash
+* Version
+* Effective date
+* Uploaded date
+* Current/obsolete status
+* Change detection
+
+If a document has not changed:
+
+```text
+Do not reprocess it.
+```
+
+If a document has changed:
+
+```text
+Process the new version
+→ remove/retire obsolete vectors
+→ create new chunks
+→ generate new embeddings
+→ update indexes
+```
+
+The system must support historical versions while allowing retrieval of the current version.
+
+---
+
+## Evaluation Framework
+
+Build a dedicated evaluation framework.
+
+Create a hand-labeled evaluation dataset containing:
+
+* Query
+* Expected answer
+* Relevant document
+* Relevant page
+* Relevant chunk
+* Relevance score
+* Query category
+* Expected evidence
+
+Include:
+
+* Text questions
+* Table questions
+* Image questions
+* Exact lookup questions
+* Cross-document questions
+* Multi-hop questions
+* Calculation questions
+* Unanswerable questions
+* Conflict-detection questions
+
+---
+
+## Retrieval Evaluation
+
+Calculate:
+
+* Recall@K
+* Precision@K
+* MRR
+* NDCG@K
+* Hit Rate
+* Retrieval latency
+
+Compare:
+
+```text
+Single Vector
+vs
+Hybrid
+vs
+Hybrid + Reranker
+vs
+Parent/Child
+vs
+Multi-Vector
+vs
+Multi-Vector + RRF
+vs
+Multi-Vector + Reranker
+vs
+Late Interaction
+```
+
+Use a held-out evaluation set for final reporting.
+
+---
+
+## Chunking Evaluation
+
+Evaluate:
+
+* Chunk coverage
+* Relevant-information preservation
+* Semantic coherence
+* Context completeness
+* Parent-child coverage
+* Table integrity
+* Section integrity
+
+Determine whether the correct information is contained in retrievable chunks.
+
+---
+
+## Embedding Evaluation
+
+Compare embedding models using the same query/evaluation dataset.
+
+Measure:
+
+* Recall@K
+* MRR
+* NDCG
+* Precision@K
+* Latency
+* Memory/storage
+* Cost
+
+Do not evaluate embedding models using different datasets.
+
+---
+
+## Multi-Vector Evaluation
+
+Explicitly compare:
+
+```text
+Single vector baseline
+vs
+Multi-vector
+```
+
+Measure:
+
+* Recall@5
+* Recall@10
+* MRR
+* NDCG
+* Groundedness
+* Answer correctness
+* Completeness
+* Retrieval latency
+* End-to-end latency
+* Storage overhead
+* Embedding cost
+* Query cost
+
+Report absolute and percentage differences.
+
+---
+
+## Mixed-Content Evaluation
+
+Create metrics for:
+
+* Table retrieval success
+* Image retrieval success
+* OCR extraction accuracy
+* Field found rate
+* Field not-found rate
+* False extraction rate
+* Cross-document consistency detection
+* Citation accuracy
+
+For example:
+
+```text
+Field Found Rate =
+Correctly found fields / Expected fields
+```
+
+and:
+
+```text
+Field Not Found Rate =
+Missing fields / Expected fields
+```
+
+---
+
+## OCR Evaluation
+
+Evaluate:
+
+* Character Error Rate
+* Word Error Rate
+* Field extraction accuracy
+* Table extraction accuracy
+* Checkbox extraction accuracy
+* Signature detection accuracy
+* Layout extraction accuracy
+
+Ensure OCR errors can be traced to downstream RAG failures.
+
+---
+
+## Generation Evaluation
+
+Evaluate:
+
+* Answer correctness
+* Answer relevance
+* Groundedness
+* Faithfulness
+* Completeness
+* Citation correctness
+* Citation completeness
+* Hallucination rate
+* Abstention accuracy
+
+The system should explicitly distinguish:
+
+```text
+Correct answer
+Grounded answer
+Complete answer
+Relevant answer
+```
+
+These are not necessarily the same thing.
+
+---
+
+## RAG Failure Analysis
+
+When an answer is incorrect, the system should provide a diagnostic trail:
+
+```text
+Question
+↓
+Query transformation
+↓
+Query embedding
+↓
+Retrieved documents
+↓
+Retrieved chunks
+↓
+Ranking
+↓
+Reranking
+↓
+Final context
+↓
+LLM answer
+```
+
+Identify where the failure occurred:
+
+* OCR
+* Parsing
+* Chunking
+* Embedding
+* Indexing
+* Retrieval
+* Fusion
+* Reranking
+* Context assembly
+* Generation
+
+---
+
+## Observability
+
+Capture:
+
+* Request ID
+* Query
+* Query type
+* Query rewrite
+* Embedding model
+* Retrieved chunk IDs
+* Retrieval scores
+* RRF scores
+* Reranker scores
+* Final context
+* LLM model
+* Prompt tokens
+* Completion tokens
+* Latency
+* Cost
+* Final answer
+* Citations
+* Evaluation score
+
+Make the entire RAG pipeline traceable.
+
+---
+
+## Configuration-Driven Architecture
+
+Do not hardcode models or retrieval settings.
+
+Create configuration for:
+
+```yaml
+embedding_model:
+vector_database:
+chunking_strategy:
+chunk_size:
+chunk_overlap:
+retrieval_type:
+dense_top_k:
+sparse_top_k:
+fusion_method:
+reranker:
+reranker_top_k:
+final_context_k:
+llm_model:
+temperature:
+max_tokens:
+```
+
+Allow experiments to be run by changing configuration rather than rewriting code.
+
+---
+
+## User Interface
+
+Build a professional React + TypeScript + Vite frontend.
+
+The UI should contain:
+
+### Document Explorer
+
+Display:
+
+* Uploaded documents
+* Document type
+* Pages
+* Versions
+* Processing status
+
+### Document Intelligence Viewer
+
+Display:
+
+* OCR text
+* Tables
+* Images
+* Sections
+* Bounding boxes
+* Extracted metadata
+
+### Chunk Explorer
+
+Display:
+
+* Chunk ID
+* Parent ID
+* Content type
+* Text
+* Page
+* Section
+* Metadata
+
+### Embedding Explorer
+
+Display:
+
+* Embedding model
+* Dimension
+* Vector type
+* Content type
+* Number of vectors
+
+### Retrieval Playground
+
+When a user asks a question, display:
+
+```text
+Query
+↓
+Query classification
+↓
+Query rewrite
+↓
+Dense results
+↓
+Sparse results
+↓
+RRF
+↓
+Reranking
+↓
+Final context
+↓
+LLM answer
+```
+
+### Evaluation Dashboard
+
+Display:
+
+* Recall@K
+* Precision@K
+* MRR
+* NDCG
+* Groundedness
+* Correctness
+* Completeness
+* Citation accuracy
+* Latency
+* Cost
+* Single-vector vs multi-vector comparison
+
+Use charts to compare experiments.
+
+---
+
+## Backend Architecture
+
+Use:
+
+* Python
+* FastAPI
+* LangGraph where workflow orchestration is required
+* Pydantic
+* Async processing where appropriate
+
+Keep the following components modular:
+
+```text
+document_parser
+ocr_service
+layout_service
+table_extractor
+image_processor
+document_normalizer
+chunking_service
+embedding_service
+sparse_retriever
+vector_store
+retrieval_service
+fusion_service
+reranker
+query_router
+query_rewriter
+context_builder
+llm_service
+citation_service
+evaluation_service
+observability_service
+```
+
+Use interfaces/abstract classes so implementations can be swapped.
+
+---
+
+## Engineering Requirements
+
+Implement:
+
+* Strong typing
+* Pydantic models
+* Structured logging
+* Error handling
+* Retry handling
+* Configuration management
+* Environment variables
+* Unit tests
+* Integration tests
+* Evaluation tests
+* Docker support
+* README
+* Architecture documentation
+* API documentation
+
+Do not create a monolithic Python file.
+
+Use a clean production-style folder structure.
+
+---
+
+## Expected Output
+
+The final application should allow me to:
+
+1. Upload a complex loan document package.
+2. Process digital and scanned PDFs.
+3. Extract OCR, layout, tables, images and metadata.
+4. Create multiple chunking strategies.
+5. Generate multiple embedding types.
+6. Store single and multi-vector representations.
+7. Perform dense retrieval.
+8. Perform sparse/BM25 retrieval.
+9. Perform hybrid retrieval.
+10. Perform RRF fusion.
+11. Perform parent-child retrieval.
+12. Perform multi-vector retrieval.
+13. Perform multimodal retrieval.
+14. Perform reranking.
+15. Perform query rewriting.
+16. Perform query decomposition.
+17. Build grounded context.
+18. Generate evidence-based answers.
+19. Provide document/page/chunk citations.
+20. Detect conflicting information.
+21. Handle unanswerable questions.
+22. Maintain document versions.
+23. Incrementally update the knowledge base.
+24. Evaluate every important RAG component.
+25. Compare single-vector and multi-vector architectures.
+26. Track latency and cost.
+27. Trace the complete RAG execution.
+28. Provide an evaluation dashboard.
+
+---
+
+## Most Important Requirement
+
+Do not optimize for simply producing an answer.
+
+Optimize for **measurable retrieval quality, groundedness, traceability, explainability, latency, cost, and maintainability**.
+
+The architecture must make it possible to answer:
+
+> **Why did the system retrieve this document?**
+
+> **Why did it select this chunk?**
+
+> **Why did the reranker rank this chunk higher?**
+
+> **Which embedding model produced the vector?**
+
+> **Which retrieval strategy found the evidence?**
+
+> **What evidence supports the final answer?**
+
+> **Why did the system fail when it produced an incorrect answer?**
+
+The final system should therefore function not only as a **Loan Document RAG Assistant**, but also as a **RAG experimentation and evaluation platform** for comparing different chunking, embedding, indexing, retrieval, reranking, multi-vector and generation strategies.
